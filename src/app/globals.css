@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+:root {
+	--font-sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+		Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+	--font-display: ui-sans-serif, system-ui;
+
+	/* Design tokens (light) */
+	--bg: 210 40% 98%;
+	--surface: 0 0% 100%;
+	--surface-2: 210 40% 96%;
+	--text: 222 47% 11%;
+	--muted: 215 16% 47%;
+	--border: 214 32% 91%;
+
+	--primary: 142 72% 29%; /* green */
+	--secondary: 221 83% 53%; /* blue */
+	--warn: 38 92% 50%;
+	--danger: 0 84% 60%;
+
+	--shadow-sm: 0 1px 2px hsl(222 47% 11% / 0.06);
+	--shadow-md: 0 6px 18px hsl(222 47% 11% / 0.10);
+	--shadow-xl: 0 18px 40px hsl(222 47% 11% / 0.18);
+}
+
+.dark {
+	/* Design tokens (dark) */
+	--bg: 222 34% 8%;
+	--surface: 222 34% 10%;
+	--surface-2: 222 34% 12%;
+	--text: 210 40% 98%;
+	--muted: 215 20% 65%;
+	--border: 222 34% 18%;
+
+	--primary: 142 71% 45%;
+	--secondary: 217 91% 60%;
+	--warn: 43 96% 56%;
+	--danger: 0 84% 60%;
+
+	--shadow-sm: 0 1px 2px hsl(0 0% 0% / 0.35);
+	--shadow-md: 0 10px 24px hsl(0 0% 0% / 0.45);
+	--shadow-xl: 0 30px 60px hsl(0 0% 0% / 0.55);
+}
+
+.bg-noise {
+	position: relative;
+}
+
+.bg-noise::before {
+	content: "";
+	pointer-events: none;
+	position: absolute;
+	inset: 0;
+	opacity: 0.08;
+	mix-blend-mode: multiply;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+}
+
+.bg-grid {
+	position: relative;
+}
+
+.bg-grid::after {
+	content: "";
+	pointer-events: none;
+	position: absolute;
+	inset: 0;
+	opacity: 0.65;
+	background-image:
+		radial-gradient(circle at 1px 1px, hsl(var(--border) / 0.75) 1px, transparent 0);
+	background-size: 22px 22px;
+	mask-image: radial-gradient(circle at 50% 0%, black 35%, transparent 75%);
+}
+
+.font-display {
+	font-family: var(--font-display);
+}
+
+.font-sans {
+	font-family: var(--font-sans);
+}
+
+html,
+body {
+	height: 100%;
+}
+
+* {
+	-webkit-tap-highlight-color: transparent;
+}
