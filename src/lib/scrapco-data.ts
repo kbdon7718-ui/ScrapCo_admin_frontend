@@ -1,8 +1,8 @@
 export type PickupStatus = "Pending" | "Assigned" | "Completed" | "Cancelled";
 
-export type ScrapCategory = "Paper" | "Metal" | "Plastic" | "E-Waste" | "Glass";
+export type ScrapCategory = string;
 
-export type City = "Pune" | "Mumbai" | "Navi Mumbai" | "Thane";
+export type City = string;
 
 export type ScrapType = {
 	id: string;
@@ -25,7 +25,7 @@ export type Customer = {
 	id: string;
 	name: string;
 	phone: string;
-	city: City;
+	city?: City;
 };
 
 export type Vendor = {

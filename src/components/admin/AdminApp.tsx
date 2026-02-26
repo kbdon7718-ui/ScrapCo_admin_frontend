@@ -30,6 +30,7 @@ import {
 	type Pickup,
 	type Vendor,
 	type Payout,
+	type Customer,
 } from "@/lib/scrapco-data";
 import { viewMeta, navGroups, type ViewId } from "@/components/admin/nav";
 
@@ -42,6 +43,7 @@ import ReportsPage from "@/components/admin/pages/Reports";
 import AccessPage from "@/components/admin/pages/Access";
 import ScrapCatalogPage from "@/components/admin/pages/ScrapCatalog";
 import RatesPage from "@/components/admin/pages/Rates";
+import BlogPage, { type BlogPost as AdminBlogPost } from "@/components/admin/pages/Blog";
 
 type ApiStatus = "idle" | "loading" | "error";
 
@@ -53,6 +55,30 @@ type AdminScrapType = {
 };
 
 type Status = "idle" | "loading" | "error";
+
+type AdminPickupRow = {
+	id: string;
+	createdAt: string | null;
+	status: "Pending" | "Assigned" | "Completed" | "Cancelled";
+	dbStatus?: string | null;
+	customerId: string;
+	customerName?: string | null;
+	customerPhone?: string | null;
+	address?: string | null;
+	timeSlot?: string | null;
+	vendorRef?: string | null;
+	scrapType?: string | null;
+	weightKg?: number | null;
+	amountInr?: number | null;
+};
+
+type AdminUserRow = {
+	id: string;
+	email: string | null;
+	phone: string | null;
+	createdAt: string | null;
+	role: string | null;
+};
 
 function getApiBaseUrlOrNull() {
 	const url = process.env.NEXT_PUBLIC_API_BASE ?? process.env.NEXT_PUBLIC_API_URL;
@@ -70,7 +96,11 @@ async function readJsonSafely(res: Response) {
 	}
 }
 
-async function apiFetch(sessionToken: string, path: string, init?: RequestInit) {
+function isRecord(v: unknown): v is Record<string, unknown> {
+	return Boolean(v) && typeof v === "object";
+}
+
+async function apiFetch<T = unknown>(sessionToken: string, path: string, init?: RequestInit): Promise<T> {
 	const base = getApiBaseUrlOrNull();
 	if (!base) throw new Error("Missing NEXT_PUBLIC_API_BASE");
 	const res = await fetch(`${base}${path}`, {
@@ -81,11 +111,12 @@ async function apiFetch(sessionToken: string, path: string, init?: RequestInit) 
 			...(init?.headers || {}),
 		},
 	});
-	const json = (await readJsonSafely(res)) as any;
+	const json = await readJsonSafely(res);
 	if (!res.ok) {
-		throw new Error(json?.error || `Request failed (${res.status})`);
+		const msg = isRecord(json) && typeof json.error === "string" ? json.error : null;
+		throw new Error(msg || `Request failed (${res.status})`);
 	}
-	return json;
+	return json as T;
 }
 
 export default function AdminApp() {
@@ -117,10 +148,19 @@ export default function AdminApp() {
 	const [pickups, setPickups] = useState<Pickup[]>(() => mockPickups);
 	const [vendors, setVendors] = useState<Vendor[]>(() => mockVendors);
 	const [payouts, setPayouts] = useState<Payout[]>(() => mockPayouts);
+	const [customers, setCustomers] = useState<Customer[]>(() => mockCustomers);
+	const [godowns, setGodowns] = useState<Array<Record<string, unknown>>>(() => []);
+	const [users, setUsers] = useState<AdminUserRow[]>(() => []);
+	const [opsStatus, setOpsStatus] = useState<ApiStatus>("idle");
+	const [opsError, setOpsError] = useState<string>("");
 
 	const [scrapTypes, setScrapTypes] = useState<AdminScrapType[]>([]);
 	const [scrapStatus, setScrapStatus] = useState<ApiStatus>("idle");
 	const [scrapError, setScrapError] = useState<string>("");
+
+	const [blogPosts, setBlogPosts] = useState<AdminBlogPost[]>([]);
+	const [blogStatus, setBlogStatus] = useState<ApiStatus>("idle");
+	const [blogError, setBlogError] = useState<string>("");
 
 	const permissions = useMemo(() => computePermissions(role, permissionOverrides), [role, permissionOverrides]);
 
@@ -135,6 +175,7 @@ export default function AdminApp() {
 				inventory: "view_inventory",
 				payments: "view_payments",
 				reports: "view_reports",
+				blog: "view_blog",
 				access: "admin_access",
 			};
 			return can(permissions, map[view]);
@@ -147,7 +188,7 @@ export default function AdminApp() {
 			const stored = window.localStorage.getItem("scrapco_admin_view");
 			if (
 				stored &&
-				["dashboard", "pickups", "vendors", "scrap", "rates", "inventory", "payments", "reports", "access"].includes(stored)
+				["dashboard", "pickups", "vendors", "scrap", "rates", "inventory", "payments", "reports", "blog", "access"].includes(stored)
 			) {
 				setActiveView(stored as ViewId);
 			}
@@ -222,14 +263,17 @@ export default function AdminApp() {
 				const res = await fetch(`${base}/api/admin/me`, {
 					headers: { Authorization: `Bearer ${sessionToken}` },
 				});
-				const json = (await readJsonSafely(res)) as any;
+				const json = await readJsonSafely(res);
 				if (!res.ok) {
-					throw new Error(json?.error || `Admin check failed (${res.status})`);
+					const msg = isRecord(json) && typeof json.error === "string" ? json.error : null;
+					throw new Error(msg || `Admin check failed (${res.status})`);
 				}
 				if (!cancelled) {
-					setIsAdmin(Boolean(json?.isAdmin));
+					setIsAdmin(Boolean(isRecord(json) ? json.isAdmin : false));
 					setAdminStatus("idle");
-					if (!json?.isAdmin) setAdminError("Admin access required. Set profiles.role = 'admin' for this user in Supabase.");
+					if (!Boolean(isRecord(json) ? json.isAdmin : false)) {
+						setAdminError("Admin access required. Set profiles.role = 'admin' for this user in Supabase.");
+					}
 				}
 			} catch (e) {
 				if (!cancelled) {
@@ -258,12 +302,147 @@ export default function AdminApp() {
 		}
 	}, [sessionToken]);
 
+	const refreshBlogPosts = useCallback(async () => {
+		setBlogError("");
+		setBlogStatus("loading");
+		try {
+			const json = await apiFetch(sessionToken, "/api/admin/blog");
+			const rows = (json?.posts || []) as AdminBlogPost[];
+			setBlogPosts(rows);
+			setBlogStatus("idle");
+		} catch (e) {
+			setBlogStatus("error");
+			setBlogError(e instanceof Error ? e.message : "Failed to load blog posts");
+		}
+	}, [sessionToken]);
+
+	const refreshPickups = useCallback(async () => {
+		setOpsError("");
+		setOpsStatus("loading");
+		try {
+			const json = await apiFetch(sessionToken, "/api/admin/pickups");
+			const rows = (json?.pickups || []) as AdminPickupRow[];
+
+			setPickups(
+				rows.map((r) => ({
+					id: r.id,
+					createdAt: r.createdAt || new Date().toISOString(),
+					customerId: r.customerId,
+					vendorId: r.vendorRef || null,
+					scrapType: r.scrapType || "—",
+					category: "—",
+					weightKg: Number.isFinite(Number(r.weightKg)) ? Number(r.weightKg) : 0,
+					amountInr: Number.isFinite(Number(r.amountInr)) ? Number(r.amountInr) : 0,
+					status: r.status,
+				})),
+			);
+
+			// Build customer list from pickup rows (best-effort)
+			const map = new Map<string, Customer>();
+			for (const r of rows) {
+				if (!r.customerId) continue;
+				map.set(r.customerId, {
+					id: r.customerId,
+					name: r.customerName || r.customerId,
+					phone: r.customerPhone || "",
+				});
+			}
+			setCustomers(Array.from(map.values()));
+
+			setOpsStatus("idle");
+		} catch (e) {
+			setOpsStatus("error");
+			setOpsError(e instanceof Error ? e.message : "Failed to load pickups");
+		}
+	}, [sessionToken]);
+
+	const refreshVendors = useCallback(async () => {
+		setOpsError("");
+		setOpsStatus("loading");
+		try {
+			const json = await apiFetch<{ vendors?: unknown[] }>(sessionToken, "/api/admin/vendors");
+			const rows = json?.vendors || [];
+			setVendors(
+				rows.map((v) => {
+					const row = isRecord(v) ? v : {};
+					const id = String(row.vendor_ref ?? row.vendor_id ?? row.id ?? "").trim() || "—";
+					return {
+						id,
+						name: String(row.name ?? id),
+						city: String(row.city ?? ""),
+						joinedAt: String(row.created_at ?? row.updated_at ?? new Date().toISOString()),
+						commissionPct: Number(row.commission_pct ?? 0),
+						isSuspended: row.active === false,
+						rating: Number(row.rating ?? 0),
+						bio: String(row.offer_url ?? ""),
+					};
+				}),
+			);
+			setOpsStatus("idle");
+		} catch (e) {
+			setOpsStatus("error");
+			setOpsError(e instanceof Error ? e.message : "Failed to load vendors");
+		}
+	}, [sessionToken]);
+
+	const refreshGodowns = useCallback(async () => {
+		setOpsError("");
+		setOpsStatus("loading");
+		try {
+			const json = await apiFetch<{ godowns?: Array<Record<string, unknown>> }>(sessionToken, "/api/admin/godowns");
+			setGodowns(json?.godowns || []);
+			setOpsStatus("idle");
+		} catch (e) {
+			setOpsStatus("error");
+			setOpsError(e instanceof Error ? e.message : "Failed to load godowns");
+		}
+	}, [sessionToken]);
+
+	const refreshUsers = useCallback(async () => {
+		setOpsError("");
+		setOpsStatus("loading");
+		try {
+			const json = await apiFetch(sessionToken, "/api/admin/users");
+			setUsers((json?.users || []) as AdminUserRow[]);
+			setOpsStatus("idle");
+		} catch (e) {
+			setOpsStatus("error");
+			setOpsError(e instanceof Error ? e.message : "Failed to load users");
+		}
+	}, [sessionToken]);
+
 	useEffect(() => {
 		if (!sessionToken) return;
 		if (!isAdmin) return;
 		if (!getApiBaseUrlOrNull()) return;
 		refreshScrapTypes();
 	}, [sessionToken, isAdmin, refreshScrapTypes]);
+
+	useEffect(() => {
+		if (!sessionToken) return;
+		if (!isAdmin) return;
+		if (!getApiBaseUrlOrNull()) return;
+		if (previewMode) return;
+
+		refreshPickups();
+		refreshVendors();
+		refreshGodowns();
+		refreshUsers();
+
+		const id = window.setInterval(() => {
+			refreshPickups();
+		}, 5000);
+		return () => window.clearInterval(id);
+	}, [sessionToken, isAdmin, previewMode, refreshPickups, refreshVendors, refreshGodowns, refreshUsers]);
+
+	useEffect(() => {
+		if (!sessionToken) return;
+		if (!isAdmin) return;
+		if (!getApiBaseUrlOrNull()) return;
+		if (previewMode) return;
+		if (activeView !== "blog") return;
+		refreshBlogPosts();
+	}, [sessionToken, isAdmin, previewMode, activeView, refreshBlogPosts]);
 
 	const notificationCount = useMemo(() => {
 		const pending = pickups.filter((p) => p.status === "Pending").length;
@@ -403,9 +582,49 @@ export default function AdminApp() {
 		[sessionToken, refreshScrapTypes],
 	);
 
+	const onCreateBlogPost = useCallback(
+		async (payload: {
+			title: string;
+			slug?: string;
+			excerpt?: string | null;
+			content?: string;
+			featured_image?: string | null;
+			is_published?: boolean;
+		}) => {
+			const json = await apiFetch(sessionToken, "/api/admin/blog", {
+				method: "POST",
+				body: JSON.stringify(payload),
+			});
+			await refreshBlogPosts();
+			return (json?.post || null) as AdminBlogPost | null;
+		},
+		[sessionToken, refreshBlogPosts],
+	);
+
+	const onUpdateBlogPost = useCallback(
+		async (
+			id: string,
+			patch: Partial<{
+				title: string;
+				slug: string;
+				excerpt: string | null;
+				content: string;
+				featured_image: string | null;
+				is_published: boolean;
+			}>,
+		) => {
+			await apiFetch(sessionToken, `/api/admin/blog/${encodeURIComponent(id)}`, {
+				method: "PATCH",
+				body: JSON.stringify(patch),
+			});
+			await refreshBlogPosts();
+		},
+		[sessionToken, refreshBlogPosts],
+	);
+
 	const [openPickupId, setOpenPickupId] = useState<string | null>(null);
 	const openPickup = useMemo(() => (openPickupId ? pickups.find((p) => p.id === openPickupId) || null : null), [openPickupId, pickups]);
-	const byCustomer = useMemo(() => new Map(mockCustomers.map((c) => [c.id, c] as const)), []);
+	const byCustomer = useMemo(() => new Map(customers.map((c) => [c.id, c] as const)), [customers]);
 	const byVendor = useMemo(() => new Map(vendors.map((v) => [v.id, v] as const)), [vendors]);
 
 	if (!sessionToken) {
@@ -519,7 +738,7 @@ export default function AdminApp() {
 				{activeView === "pickups" ? (
 					<PickupsPage
 						pickups={pickups}
-						customers={mockCustomers}
+						customers={customers}
 						vendors={vendors}
 						permissions={permissions}
 						onUpdatePickup={onUpdatePickup}
@@ -528,7 +747,19 @@ export default function AdminApp() {
 				) : null}
 
 				{activeView === "vendors" ? (
-					<VendorsPage vendors={vendors} pickups={pickups} permissions={permissions} onUpdateVendor={onUpdateVendor} />
+					<VendorsPage
+						vendors={vendors}
+						pickups={pickups}
+						permissions={permissions}
+						onUpdateVendor={onUpdateVendor}
+						godowns={godowns}
+						opsStatus={opsStatus}
+						opsError={opsError}
+						onRefresh={async () => {
+							await refreshVendors();
+							await refreshGodowns();
+						}}
+					/>
 				) : null}
 
 				{activeView === "scrap" ? (
@@ -570,12 +801,35 @@ export default function AdminApp() {
 					<ReportsPage revenueTrend={mockRevenueTrend} inventory={mockInventory} vendors={vendors} pickups={pickups} />
 				) : null}
 
+				{activeView === "blog" ? (
+					<BlogPage
+						posts={blogPosts}
+						status={blogStatus}
+						error={blogError}
+						permissions={permissions}
+						onRefresh={refreshBlogPosts}
+						onCreatePost={onCreateBlogPost}
+						onUpdatePost={onUpdateBlogPost}
+					/>
+				) : null}
+
 				{activeView === "access" ? (
 					<AccessPage
 						role={role}
 						onRoleChange={setRole}
 						overrides={permissionOverrides}
 						onTogglePermission={onTogglePermission}
+						users={users}
+						status={opsStatus}
+						error={opsError}
+						onRefresh={refreshUsers}
+						onUpdateUserRole={async (userId, nextRole) => {
+							await apiFetch(sessionToken, `/api/admin/users/${encodeURIComponent(userId)}`, {
+								method: "PATCH",
+								body: JSON.stringify({ role: nextRole }),
+							});
+							await refreshUsers();
+						}}
 					/>
 				) : null}
 			</AdminShell>

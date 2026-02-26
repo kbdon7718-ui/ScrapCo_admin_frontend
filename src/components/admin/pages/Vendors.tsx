@@ -21,17 +21,24 @@ export default function VendorsPage({
 	pickups,
 	permissions,
 	onUpdateVendor,
+	godowns,
+	opsStatus,
+	opsError,
+	onRefresh,
 }: {
 	vendors: Vendor[];
 	pickups: Pickup[];
 	permissions: PermissionMatrix;
 	onUpdateVendor: (vendorId: string, patch: Partial<Vendor>) => void;
+	godowns?: any[];
+	opsStatus?: "idle" | "loading" | "error";
+	opsError?: string;
+	onRefresh?: () => Promise<void>;
 }) {
 	const [search, setSearch] = useState<string>("");
 	const [openVendorId, setOpenVendorId] = useState<string | null>(null);
 	const [commissionDraft, setCommissionDraft] = useState<string>("");
 	const [showCommissionDialog, setShowCommissionDialog] = useState<boolean>(false);
-
 	const byId = useMemo(() => new Map(vendors.map((v) => [v.id, v] as const)), [vendors]);
 	const openVendor = openVendorId ? byId.get(openVendorId) || null : null;
 
@@ -129,6 +136,58 @@ export default function VendorsPage({
 											</tr>
 										);
 									})}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</CardContent>
+			</Card>
+
+			{opsError ? (
+				<div className="rounded-xl border border-[hsl(var(--warn)/0.35)] bg-[hsl(var(--warn)/0.10)] p-3 text-sm text-[hsl(var(--text))]">
+					{opsError}
+				</div>
+			) : null}
+			<Card>
+				<CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+					<div>
+						<CardTitle>Godowns (Raw)</CardTitle>
+					</div>
+					{onRefresh ? (
+						<Button onClick={() => void onRefresh()} disabled={opsStatus === "loading"}>
+							Refresh
+						</Button>
+					) : null}
+				</CardHeader>
+				<CardContent>
+					<div className="overflow-hidden rounded-xl border border-[hsl(var(--border))]">
+						<div className="max-h-[360px] overflow-auto">
+							<table className="min-w-full text-sm">
+								<thead className="sticky top-0 bg-[hsl(var(--surface))]">
+									<tr className="border-b border-[hsl(var(--border))] text-left text-xs text-[hsl(var(--muted))]">
+										<th className="px-4 py-3">Row</th>
+										<th className="px-4 py-3">Data</th>
+									</tr>
+								</thead>
+								<tbody>
+									{(godowns || []).map((g, idx) => (
+										<tr
+											key={String(g?.id ?? idx)}
+											className={idx % 2 === 0 ? "bg-[hsl(var(--surface))]" : "bg-[hsl(var(--surface-2))]"}
+										>
+											<td className="px-4 py-3 font-medium">{String(g?.id ?? idx + 1)}</td>
+											<td className="px-4 py-3">
+												<pre className="whitespace-pre-wrap break-words text-xs text-[hsl(var(--muted))]">{JSON.stringify(g, null, 2)}</pre>
+											</td>
+										</tr>
+									))}
+									{(godowns || []).length === 0 ? (
+										<tr>
+											<td colSpan={2} className="px-4 py-10 text-center text-sm text-[hsl(var(--muted))]">
+												No godowns found. Configure the vendor project table public.godowns or update the backend endpoint.
+											</td>
+										</tr>
+									) : null}
 								</tbody>
 							</table>
 						</div>

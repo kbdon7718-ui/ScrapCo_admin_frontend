@@ -2,6 +2,7 @@ import {
 	BarChart3,
 	ClipboardList,
 	CreditCard,
+	FileText,
 	Gauge,
 	HardHat,
 	IndianRupee,
@@ -21,6 +22,7 @@ export type ViewId =
 	| "inventory"
 	| "payments"
 	| "reports"
+	| "blog"
 	| "access";
 
 export type NavGroup = {
@@ -59,6 +61,11 @@ export const navGroups: NavGroup[] = [
 			{ id: "payments", label: "Payments", icon: CreditCard },
 			{ id: "reports", label: "Reports", icon: BarChart3 },
 		],
+	},
+	{
+		id: "content",
+		label: "Content",
+		items: [{ id: "blog", label: "Blog", icon: FileText }],
 	},
 	{
 		id: "admin",
@@ -107,6 +114,11 @@ export const viewMeta: Record<ViewId, { title: string; subtitle: string; icon: R
 		title: "Reports & Analytics",
 		subtitle: "Growth, rankings, and category trends.",
 		icon: BarChart3,
+	},
+	blog: {
+		title: "Blog",
+		subtitle: "Write and publish posts for the website blog.",
+		icon: FileText,
 	},
 	access: {
 		title: "Role & Access Control",

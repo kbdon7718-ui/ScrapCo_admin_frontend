@@ -16,6 +16,8 @@ export type PermissionKey =
 	| "approve_payouts"
 	| "mark_paid"
 	| "view_reports"
+	| "view_blog"
+	| "edit_blog"
 	| "admin_access";
 
 export type PermissionMatrix = Record<PermissionKey, boolean>;
@@ -43,6 +45,8 @@ export const defaultPermissionsByRole: Record<Role, PermissionMatrix> = {
 		approve_payouts: true,
 		mark_paid: true,
 		view_reports: true,
+		view_blog: true,
+		edit_blog: true,
 		admin_access: true,
 	},
 	ops_manager: {
@@ -61,6 +65,8 @@ export const defaultPermissionsByRole: Record<Role, PermissionMatrix> = {
 		approve_payouts: false,
 		mark_paid: false,
 		view_reports: true,
+		view_blog: true,
+		edit_blog: true,
 		admin_access: false,
 	},
 	accounts: {
@@ -79,6 +85,8 @@ export const defaultPermissionsByRole: Record<Role, PermissionMatrix> = {
 		approve_payouts: true,
 		mark_paid: true,
 		view_reports: true,
+		view_blog: false,
+		edit_blog: false,
 		admin_access: false,
 	},
 };
