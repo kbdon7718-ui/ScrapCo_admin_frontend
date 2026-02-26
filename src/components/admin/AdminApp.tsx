@@ -292,8 +292,8 @@ export default function AdminApp() {
 		setScrapError("");
 		setScrapStatus("loading");
 		try {
-			const json = await apiFetch(sessionToken, "/api/admin/scrap-types");
-			const rows = (json?.scrapTypes || []) as AdminScrapType[];
+			const json = await apiFetch<{ scrapTypes?: AdminScrapType[] }>(sessionToken, "/api/admin/scrap-types");
+			const rows = json?.scrapTypes || [];
 			setScrapTypes(rows);
 			setScrapStatus("idle");
 		} catch (e) {
@@ -306,8 +306,8 @@ export default function AdminApp() {
 		setBlogError("");
 		setBlogStatus("loading");
 		try {
-			const json = await apiFetch(sessionToken, "/api/admin/blog");
-			const rows = (json?.posts || []) as AdminBlogPost[];
+			const json = await apiFetch<{ posts?: AdminBlogPost[] }>(sessionToken, "/api/admin/blog");
+			const rows = json?.posts || [];
 			setBlogPosts(rows);
 			setBlogStatus("idle");
 		} catch (e) {
@@ -320,8 +320,8 @@ export default function AdminApp() {
 		setOpsError("");
 		setOpsStatus("loading");
 		try {
-			const json = await apiFetch(sessionToken, "/api/admin/pickups");
-			const rows = (json?.pickups || []) as AdminPickupRow[];
+			const json = await apiFetch<{ pickups?: AdminPickupRow[] }>(sessionToken, "/api/admin/pickups");
+			const rows = json?.pickups || [];
 
 			setPickups(
 				rows.map((r) => ({
@@ -402,8 +402,8 @@ export default function AdminApp() {
 		setOpsError("");
 		setOpsStatus("loading");
 		try {
-			const json = await apiFetch(sessionToken, "/api/admin/users");
-			setUsers((json?.users || []) as AdminUserRow[]);
+			const json = await apiFetch<{ users?: AdminUserRow[] }>(sessionToken, "/api/admin/users");
+			setUsers(json?.users || []);
 			setOpsStatus("idle");
 		} catch (e) {
 			setOpsStatus("error");
@@ -591,12 +591,12 @@ export default function AdminApp() {
 			featured_image?: string | null;
 			is_published?: boolean;
 		}) => {
-			const json = await apiFetch(sessionToken, "/api/admin/blog", {
+			const json = await apiFetch<{ post?: AdminBlogPost }>(sessionToken, "/api/admin/blog", {
 				method: "POST",
 				body: JSON.stringify(payload),
 			});
 			await refreshBlogPosts();
-			return (json?.post || null) as AdminBlogPost | null;
+			return json?.post || null;
 		},
 		[sessionToken, refreshBlogPosts],
 	);

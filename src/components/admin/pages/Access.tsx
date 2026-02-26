@@ -24,6 +24,8 @@ const permissionLabels: Record<PermissionKey, string> = {
 	approve_payouts: "Approve Payouts",
 	mark_paid: "Mark Paid",
 	view_reports: "View Reports",
+	view_blog: "View Blog",
+	edit_blog: "Edit Blog",
 	admin_access: "Admin Access",
 };
 
